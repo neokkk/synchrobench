@@ -23,6 +23,8 @@
 
 #include "intset.h"
 
+static unsigned int maxhtlength;
+
 int ht_contains(ht_intset_t *set, int val, int transactional) {
 	int addr;
 	

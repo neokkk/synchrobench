@@ -23,6 +23,8 @@
 
 #include "hashtable-lock.h"
 
+static unsigned int maxhtlength;
+
 typedef struct barrier {
 	pthread_cond_t complete;
 	pthread_mutex_t mutex;
@@ -281,7 +283,6 @@ int main(int argc, char **argv)
 	int i, c, size;
 	val_t last = 0; 
 	val_t val = 0;
-	unsigned int maxhtlength;
 	unsigned long reads, effreads, updates, effupds, moves, moved, snapshots, 
 	snapshoted, aborts, aborts_locked_read, aborts_locked_write,
 	aborts_validate_read, aborts_validate_write, aborts_validate_commit,

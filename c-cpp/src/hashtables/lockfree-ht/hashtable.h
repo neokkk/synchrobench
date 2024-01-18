@@ -32,9 +32,6 @@
 
 #define MAXHTLENGTH                     65536
 
-/* Hashtable length (# of buckets) */
-extern unsigned int maxhtlength;
-
 /* Hashtable seed */
 #ifdef TLS
 extern __thread unsigned int *rng_seed;

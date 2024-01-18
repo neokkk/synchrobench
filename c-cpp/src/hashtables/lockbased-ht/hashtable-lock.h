@@ -35,9 +35,6 @@
 
 #define MAXHTLENGTH                     65536
 
-/* Hashtable length (# of buckets) */
-extern unsigned int maxhtlength;
-
 /* ################################################################### *
  * HASH TABLE
  * ################################################################### */

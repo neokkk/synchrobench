@@ -59,7 +59,6 @@ extern __thread unsigned int *rng_seed;
 #else /* ! TLS */
 extern pthread_key_t rng_seed_key;
 #endif /* ! TLS */
-extern unsigned int levelmax;
 
 #define TRANSACTIONAL                   d->unit_tx
 
