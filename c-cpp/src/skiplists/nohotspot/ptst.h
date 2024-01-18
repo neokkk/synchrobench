@@ -6,21 +6,22 @@
 
 #include <pthread.h>
 
-typedef struct sl_ptst ptst_t;
-
 #include "garbagecoll.h"
 
-struct sl_ptst {
-        /* thread id */
-        unsigned int id;
+typedef struct sl_ptst ptst_t;
 
-        /* state management */
-        struct sl_ptst *next;
-        unsigned int   count;
+struct sl_ptst
+{
+	/* thread id */
+	unsigned int id;
 
-        /* utility structures */
-        gc_st *gc;
-        unsigned long rand;
+	/* state management */
+	struct sl_ptst *next;
+	unsigned int count;
+
+	/* utility structures */
+	gc_st *gc;
+	unsigned long rand;
 };
 
 extern pthread_key_t ptst_key;
@@ -29,7 +30,7 @@ extern pthread_key_t ptst_key;
  * enter/leave a critical section - a thread gets a state handle for
  * use during critical regions
  */
-ptst_t* ptst_critical_enter(void);
+ptst_t *ptst_critical_enter(void);
 #define ptst_critical_exit(_p) gc_exit(_p);
 
 /* Iterators */

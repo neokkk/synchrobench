@@ -1,6 +1,6 @@
 /*
  * skiplist.c: definitions of the skip list data stucture
- * 
+ *
  * Author: Ian Dick, 2013
  *
  */
@@ -9,11 +9,11 @@
 
 Module overview
 
-This module provides the basic structures used to create the 
+This module provides the basic structures used to create the
 skip list data structure, as described in:
-Crain, T., Gramoli, V., Raynal, M. (2013) 
+Crain, T., Gramoli, V., Raynal, M. (2013)
 "No Hot-Spot Non-Blocking Skip List", to appear in
-The 33rd IEEE International Conference on Distributed Computing 
+The 33rd IEEE International Conference on Distributed Computing
 Systems (ICDCS).
 
 One approach to designing a skip list data structure is to have
@@ -55,23 +55,21 @@ static int gc_id[NUM_LEVELS];
  * Note: All nodes are originally created with
  * marker set to 0 (i.e. they are unmarked).
  */
-node_t* node_new(sl_key_t key, val_t val, node_t *prev, node_t *next,
-                            unsigned int level, ptst_t *ptst)
+node_t *node_new(sl_key_t key, val_t val, node_t *prev, node_t *next,
+				 unsigned int level, ptst_t *ptst)
 {
-        node_t *node;
+	node_t *node;
+	node = gc_alloc(ptst, gc_id[NODE_LEVEL]);
+	node->key = key;
+	node->val = val;
+	node->prev = prev;
+	node->next = next;
+	node->level = level;
+	node->marker = 0;
 
-        node = gc_alloc(ptst, gc_id[NODE_LEVEL]);
+	assert(node->next != node);
 
-        node->key       = key;
-        node->val       = val;
-        node->prev      = prev;
-        node->next      = next;
-        node->level     = level;
-        node->marker    = 0;
-
-        assert (node->next != node);
-
-        return node;
+	return node;
 }
 
 /**
@@ -81,17 +79,14 @@ node_t* node_new(sl_key_t key, val_t val, node_t *prev, node_t *next,
  * @node: the node pointer for the new inode
  * @ptst: per-thread state
  */
-inode_t* inode_new(inode_t *right, inode_t *down, node_t *node, ptst_t *ptst)
+inode_t *inode_new(inode_t *right, inode_t *down, node_t *node, ptst_t *ptst)
 {
-        inode_t *inode;
-
-        inode = gc_alloc(ptst, gc_id[INODE_LEVEL]);
-
-        inode->right = right;
-        inode->down = down;
-        inode->node = node;
-
-        return inode;
+	inode_t *inode;
+	inode = gc_alloc(ptst, gc_id[INODE_LEVEL]);
+	inode->right = right;
+	inode->down = down;
+	inode->node = node;
+	return inode;
 }
 
 /**
@@ -100,7 +95,7 @@ inode_t* inode_new(inode_t *right, inode_t *down, node_t *node, ptst_t *ptst)
  */
 void node_delete(node_t *node, ptst_t *ptst)
 {
-        gc_free(ptst, (void*)node, gc_id[NODE_LEVEL]);
+	gc_free(ptst, (void *)node, gc_id[NODE_LEVEL]);
 }
 
 /**
@@ -109,7 +104,7 @@ void node_delete(node_t *node, ptst_t *ptst)
  */
 void inode_delete(inode_t *inode, ptst_t *ptst)
 {
-        gc_free(ptst, (void*)inode, gc_id[INODE_LEVEL]);
+	gc_free(ptst, (void *)inode, gc_id[INODE_LEVEL]);
 }
 
 /**
@@ -120,36 +115,37 @@ void inode_delete(inode_t *inode, ptst_t *ptst)
  * Note: A background thread to update the index levels of the
  * skip list is created and kick-started as part of this routine.
  */
-set_t* set_new(int start)
+set_t *set_new(int start)
 {
-        set_t *set;
+	set_t *set;
+	set = malloc(sizeof(set_t));
+	if (!set)
+	{
+		perror("Failed to malloc a set\n");
+		exit(1);
+	}
 
-        set = malloc(sizeof(set_t));
-        if (!set) {
-                perror("Failed to malloc a set\n");
-                exit(1);
-        }
+	set->head = malloc(sizeof(node_t));
+	set->head->key = 0;
+	set->head->val = NULL;
+	set->head->prev = NULL;
+	set->head->next = NULL;
+	set->head->level = 1;
+	set->head->marker = 0;
 
-        set->head = malloc(sizeof(node_t));
-        set->head->key    = 0;
-        set->head->val    = NULL;
-        set->head->prev   = NULL;
-        set->head->next   = NULL;
-        set->head->level  = 1;
-        set->head->marker = 0;
+	set->top = malloc(sizeof(inode_t));
+	set->top->right = NULL;
+	set->top->down = NULL;
+	set->top->node = set->head;
 
-        set->top = malloc(sizeof(inode_t));
-        set->top->right = NULL;
-        set->top->down  = NULL;
-        set->top->node  = set->head;
+	set->raises = 0;
 
-        set->raises = 0;
+	bg_init(set);
+	
+	if (start)
+		bg_start(0);
 
-        bg_init(set);
-        if (start)
-                bg_start(0);
-
-        return set;
+	return set;
 }
 
 /**
@@ -158,16 +154,16 @@ set_t* set_new(int start)
  */
 void set_delete(set_t *set)
 {
-        inode_t *top;
-        inode_t *icurr;
-        inode_t *inext;
-        node_t  *curr;
-        node_t  *next;
+	inode_t *top;
+	inode_t *icurr;
+	inode_t *inext;
+	node_t *curr;
+	node_t *next;
 
-        /* stop the background thread */
-        bg_stop();
+	/* stop the background thread */
+	bg_stop();
 
-        /* warning - we are not deallocating the memory for the skip list */
+	/* warning - we are not deallocating the memory for the skip list */
 }
 
 /**
@@ -177,29 +173,32 @@ void set_delete(set_t *set)
  */
 void set_print(set_t *set, int flag)
 {
-        node_t  *node   = set->head;
-        inode_t *ihead  = set->top;
-        inode_t *itemp  = set->top;
+	node_t *node = set->head;
+	inode_t *ihead = set->top;
+	inode_t *itemp = set->top;
 
-        /* print the index items */
-        while (NULL != ihead) {
-                while (NULL != itemp) {
-                        printf("%lu ", itemp->node->key);
-                        itemp = itemp->right;
-                }
-                printf("\n");
-                ihead = ihead->down;
-                itemp = ihead;
-        }
+	/* print the index items */
+	while (NULL != ihead)
+	{
+		while (NULL != itemp)
+		{
+			printf("%lu ", itemp->node->key);
+			itemp = itemp->right;
+		}
+		printf("\n");
+		ihead = ihead->down;
+		itemp = ihead;
+	}
 
-        while (NULL != node) {
-                if (flag && (NULL != node->val && node->val != node))
-                        printf("%lu ", node->key);
-                else if (!flag)
-                        printf("%lu ", node->key);
-                node = node->next;
-        }
-        printf("\n");
+	while (NULL != node)
+	{
+		if (flag && (NULL != node->val && node->val != node))
+			printf("%lu ", node->key);
+		else if (!flag)
+			printf("%lu ", node->key);
+		node = node->next;
+	}
+	printf("\n");
 }
 
 /**
@@ -211,19 +210,20 @@ void set_print(set_t *set, int flag)
  */
 int set_size(set_t *set, int flag)
 {
-        struct sl_node *node = set->head;
-        int size = 0;
+	struct sl_node *node = set->head;
+	int size = 0;
 
-        node = node->next;
-        while (NULL != node) {
-                if (flag && (NULL != node->val && node != node->val))
-                        ++size;
-                else if (!flag)
-                        ++size;
-                node = node->next;
-        }
+	node = node->next;
+	while (NULL != node)
+	{
+		if (flag && (NULL != node->val && node != node->val))
+			++size;
+		else if (!flag)
+			++size;
+		node = node->next;
+	}
 
-        return size;
+	return size;
 }
 
 /**
@@ -231,6 +231,6 @@ int set_size(set_t *set, int flag)
  */
 void set_subsystem_init(void)
 {
-        gc_id[NODE_LEVEL]  = gc_add_allocator(sizeof(node_t));
-        gc_id[INODE_LEVEL] = gc_add_allocator(sizeof(inode_t));
+	gc_id[NODE_LEVEL] = gc_add_allocator(sizeof(node_t));
+	gc_id[INODE_LEVEL] = gc_add_allocator(sizeof(inode_t));
 }
