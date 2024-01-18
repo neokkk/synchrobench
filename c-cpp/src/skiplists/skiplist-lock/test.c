@@ -32,7 +32,6 @@ __thread unsigned int *rng_seed;
 #else /* ! TLS */
 pthread_key_t rng_seed_key;
 #endif /* ! TLS */
-unsigned int levelmax;
 
 typedef struct barrier {
   pthread_cond_t complete;
@@ -126,10 +125,12 @@ typedef struct thread_data {
   barrier_t *barrier;
 } thread_data_t;
 
-void print_skiplist(sl_intset_t *set) {
+void print_skiplist(sl_intset_t *set, unsigned int levelmax) {
   sl_node_t *curr;
   int i, j;
-  int arr[levelmax];
+  int *arr;
+
+  arr = (int *)xmalloc(levelmax * sizeof(int));
 	
   for (i=0; i< sizeof arr/sizeof arr[0]; i++) arr[i] = 0;
 	
@@ -160,7 +161,7 @@ void *test3(void *data) {
 }
 
 
-void *test(void *data) {
+void *test(void *data, unsigned int levelmax) {
   val_t last = -1;
   val_t val = 0;
   int unext; 
@@ -354,6 +355,7 @@ void *test2(void *data)
     int i, c, size;
     val_t last = 0; 
     val_t val = 0;
+    unsigned int levelmax;
     unsigned long reads, effreads, updates, effupds, aborts, aborts_locked_read, 
       aborts_locked_write, aborts_validate_read, aborts_validate_write, 
       aborts_validate_commit, aborts_invalid_memory, max_retries;
