@@ -4,7 +4,7 @@
             "name": "Linux",
             "includePath": [
                 "/usr/include/**",
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/c-cpp/**"
             ],
             "defines": [],
             "cStandard": "c17",

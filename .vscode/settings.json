@@ -5,6 +5,11 @@
         "intset.h": "c",
         "fraser.h": "c",
         "skiplist.h": "c",
-        "getopt.h": "c"
+        "getopt.h": "c",
+        "stm.h": "c",
+        "tm.h": "c",
+        "ptst.h": "c",
+        "nohotspot_ops.h": "c",
+        "garbagecoll.h": "c"
     }
 }
