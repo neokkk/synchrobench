@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dir=..
+dir=.
 output=${dir}/output
 deuce="${dir}/lib/mydeuce.jar"
 agent=${dir}/lib/deuceAgent-1.3.0.jar
@@ -20,8 +20,8 @@ javaopt=-server
 
 stms="estm estmmvcc"
 syncs="sequential lockbased lockfree transactional"
-thread="1 2 4 8 16 32 64"
-size="16384 65536"
+thread="24"
+size="5000"
 
 writes="0 50"
 length="5000"
@@ -49,7 +49,8 @@ mkdir ${output}/log ${output}/data ${output}/plot ${output}/ps
 ###############################
 
 # lockfree benchmarks
-benchs="hashtables.lockfree.LFArrayHashSet hashtables.lockfree.NonBlockingCliffHashMap hashtables.lockfree.NonBlockingFriendlyHashMap linkedlists.lockfree.NonBlockingLinkedListSet queues.lockfree.LockFreeQueueIntSet skiplists.lockfree.NonBlockingFriendlySkiplistMap skiplists.lockfree.NonBlockingJavaSkipListMap trees.lockfree.NonBlockingTorontoBSTMap"
+benchs="skiplists.lockfree.NonBlockingFriendlySkiplistMap skiplists.lockfree.NonBlockingJavaSkipListMap"
+# benchs="hashtables.lockfree.LFArrayHashSet hashtables.lockfree.NonBlockingCliffHashMap hashtables.lockfree.NonBlockingFriendlyHashMap linkedlists.lockfree.NonBlockingLinkedListSet queues.lockfree.LockFreeQueueIntSet skiplists.lockfree.NonBlockingFriendlySkiplistMap skiplists.lockfree.NonBlockingJavaSkipListMap trees.lockfree.NonBlockingTorontoBSTMap"
 if [[ "${syncs}" =~ "lockfree" ]]; then
 for bench in ${benchs}; do
   for write in ${writes}; do
@@ -69,7 +70,8 @@ fi
 
 
 # lock-based benchmarks
-benchs="arrays.lockbased.Vector hashtables.lockbased.LockBasedJavaHashMap linkedlists.lockbased.LazyLinkedListSortedSet linkedlists.lockbased.LockedLinkedListIntSet trees.lockbased.LockBasedFriendlyTreeMap trees.lockbased.LockBasedStanfordTreeMap trees.lockbased.LogicalOrderingAVL"
+benchs=""
+# benchs="arrays.lockbased.Vector hashtables.lockbased.LockBasedJavaHashMap linkedlists.lockbased.LazyLinkedListSortedSet linkedlists.lockbased.LockedLinkedListIntSet trees.lockbased.LockBasedFriendlyTreeMap trees.lockbased.LockBasedStanfordTreeMap trees.lockbased.LogicalOrderingAVL"
 if [[ "${syncs}" =~ "lockbased" ]]; then
 for bench in ${benchs}; do
  for write in ${writes}; do
@@ -89,7 +91,8 @@ fi
 
 
 # sequential benchmark
-benchs="arrays.sequential.SequentialVector hashtables.sequential.SequentialHashIntSet linkedlists.sequential.SequentialLinkedListIntSet linkedlists.sequential.SequentialLinkedListSortedSet queues.sequential.SequentialQueueIntSet skiplists.sequential.SequentialSkipListIntSet trees.sequential.SequentialRBTreeIntSet"
+benchs="skiplists.sequential.SequentialSkipListIntSet"
+# benchs="arrays.sequential.SequentialVector hashtables.sequential.SequentialHashIntSet linkedlists.sequential.SequentialLinkedListIntSet linkedlists.sequential.SequentialLinkedListSortedSet queues.sequential.SequentialQueueIntSet skiplists.sequential.SequentialSkipListIntSet trees.sequential.SequentialRBTreeIntSet"
 if [[ "${syncs}" =~ "sequential" ]]; then
 for bench in ${benchs}; do
  for write in ${writes}; do
@@ -106,7 +109,8 @@ done
 fi
 
 # transaction-based benchmarks
-benchs="arrays.transactional.Vector hashtables.transactional.TransactionalBasicHashSet linkedlists.transactional.CompositionalLinkedListSortedSet linkedlists.transactional.ElasticLinkedListIntSet linkedlists.transactional.ReusableLinkedListIntSet"
+benchs=""
+# benchs="arrays.transactional.Vector hashtables.transactional.TransactionalBasicHashSet linkedlists.transactional.CompositionalLinkedListSortedSet linkedlists.transactional.ElasticLinkedListIntSet linkedlists.transactional.ReusableLinkedListIntSet"
 if [[ "${syncs}" =~ "transactional" ]]; then
 for bench in ${benchs}; do
  for write in ${writes}; do
