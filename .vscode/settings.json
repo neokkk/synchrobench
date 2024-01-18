@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "atomic_ops.h": "c",
+        "generalize.h": "c",
+        "intset.h": "c",
+        "fraser.h": "c",
+        "skiplist.h": "c",
+        "getopt.h": "c"
+    }
+}
