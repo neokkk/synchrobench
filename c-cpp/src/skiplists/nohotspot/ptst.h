@@ -6,12 +6,11 @@
 
 #include <pthread.h>
 
-#include "garbagecoll.h"
-
 typedef struct sl_ptst ptst_t;
 
-struct sl_ptst
-{
+#include "garbagecoll.h"
+
+struct sl_ptst {
 	/* thread id */
 	unsigned int id;
 
