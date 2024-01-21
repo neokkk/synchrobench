@@ -155,6 +155,14 @@ inline long rand_range_re(unsigned int *seed, long r) {
 }
 long rand_range_re(unsigned int *seed, long r);
 
+typedef struct rquery {
+	unsigned int from;
+	unsigned int to;
+	unsigned long search_time; // ms
+	unsigned long nb_found;
+	struct rquery *next;
+} rquery_t;
+
 typedef struct thread_data {
 	unsigned int first;
 	long range;
@@ -180,6 +188,7 @@ typedef struct thread_data {
 	unsigned int seed;
 	struct sl_set *set;
 	barrier_t *barrier;
+	rquery_t *rquery;
 	unsigned long failures_because_contention;
 } thread_data_t;
 
@@ -190,7 +199,8 @@ void print_skiplist(struct sl_set *set)
 	int i, j;
 	int arr[levelmax];
 	
-	for (i=0; i< sizeof arr/sizeof arr[0]; i++) arr[i] = 0;
+	for (i = 0; i < (sizeof arr / sizeof arr[0]); i++)
+		arr[i] = 0;
 	
 	curr = set->head;
 	do {
@@ -209,23 +219,29 @@ void print_skiplist(struct sl_set *set)
 
 void *test(void *data)
 {
-	int unext, last = -1; 
+	int unext, val_arr_size, last = -1; // is next op update, last added value
 	unsigned int val = 0;
 	thread_data_t *d = (thread_data_t *)data;
+	rquery_t *rquery_curr = d->rquery;
 	
 	/* Create transaction */
 	TM_THREAD_ENTER();
 	/* Wait on barrier */
 	barrier_cross(d->barrier);
-	
+
 	/* Is the first op an update? */
-	unext = (rand_range_re(&d->seed, 100) - 1 < d->update);
+	if (TRANSACTIONAL == 6) {
+		unext = 1;
+	} else {
+		unext = (rand_range_re(&d->seed, 100) - 1 < d->update);
+	}
 
 #ifdef ICC
 	while (stop == 0) {
 #else
 	while (AO_load_full(&stop) == 0) {
 #endif
+
 	if (unext) { // update
 		if (last < 0) { // add
 			val = rand_range_re(&d->seed, d->range);
@@ -270,18 +286,56 @@ void *test(void *data)
 					val = last;
 				}
 			}
-		} else
+		} else {
 			val = rand_range_re(&d->seed, d->range);
-		
-		if (sl_contains_old(d->set, val, TRANSACTIONAL)) 
-			d->nb_found++;
-		d->nb_contains++;
+		}
+
+		if (TRANSACTIONAL == 6) { // for range query
+			unsigned long *result = NULL;
+			struct timeval start, end;
+			rquery_t *rquery = NULL;
+
+			rquery = (rquery_t *)malloc(sizeof(rquery_t));
+
+			gettimeofday(&start, NULL);
+			
+			if (last < 0) {
+				result = (unsigned long *)sl_lookup_range_old(d->set, 1, val, TRANSACTIONAL);
+				rquery->from = 1;
+				rquery->to = val;
+				last = val;
+			} else {
+				result = (unsigned long *)sl_lookup_range_old(d->set, val, d->range, TRANSACTIONAL);
+				rquery->from = val;
+				rquery->to = d->range;
+				last = -1;
+			}
+
+			gettimeofday(&end, NULL);
+
+			rquery->nb_found = result[0];
+			rquery->search_time = (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
+
+			if (rquery_curr == NULL) {
+				d->rquery = rquery;
+			} else {
+				rquery_curr->next = rquery;
+				rquery_curr = rquery_curr->next;
+			}
+
+			printf("Thread %lu: range query from %d to %d\n", pthread_self(), rquery->from, rquery->to);
+			printf("  found %d values\n", rquery->nb_found);
+			printf("  took %lu ms\n", rquery->search_time);
+		} else {
+			if (sl_contains_old(d->set, val, TRANSACTIONAL)) 
+				d->nb_found++;
+			d->nb_contains++;
+		}
 	}
 	
 	/* Is the next op an update? */
 	if (d->effective) { // a failed remove/add is a read-only tx
-		unext = ((100 * (d->nb_added + d->nb_removed))
-							< (d->update * (d->nb_add + d->nb_remove + d->nb_contains)));
+		unext = ((100 * (d->nb_added + d->nb_removed)) < (d->update * (d->nb_add + d->nb_remove + d->nb_contains)));
 	} else { // remove/add (even failed) is considered as an update
 		unext = (rand_range_re(&d->seed, 100) - 1 < d->update);
 	}
@@ -392,6 +446,7 @@ int main(int argc, char **argv)
 					"        3 = read/add elastic-tx,\n"
 					"        4 = read/add/rem elastic-tx,\n"
 					"        5 = fraser lock-free\n"
+					"        6 = read\n"
 					);
 				exit(0);
 			case 'A':
@@ -573,6 +628,7 @@ int main(int argc, char **argv)
 		data[i].seed = rand();
 		data[i].set = set;
 		data[i].barrier = &barrier;
+		data[i].rquery = NULL;
 		data[i].failures_because_contention = 0;
 
 		if (pthread_create(&threads[i], &attr, test, (void *)(&data[i])) != 0) {
@@ -679,7 +735,7 @@ int main(int argc, char **argv)
 			max_retries = data[i].max_retries;
 	}
 
-	printf("Set size      : %d (expected: %d)\n", set_size(set,1), size);
+	printf("Set size      : %d (expected: %d)\n", set_size(set, 1), size);
 	printf("Duration      : %d (ms)\n", duration);
 	printf("#txs          : %lu (%f / s)\n", reads + updates, (reads + updates) * 1000.0 / duration);
 	printf("#read txs     : ");

@@ -62,12 +62,11 @@ finished.
 
 /* - Private Functions - */
 
-static int sl_finish_contains(sl_key_t key, node_t *node, val_t node_val,
-							  ptst_t *ptst);
-static int sl_finish_delete(sl_key_t key, node_t *node, val_t node_val,
-							ptst_t *ptst);
-static int sl_finish_insert(sl_key_t key, val_t val, node_t *node,
-							val_t node_val, node_t *next, ptst_t *ptst);
+static int sl_finish_contains(sl_key_t key, node_t *node, val_t node_val, ptst_t *ptst);
+static int sl_finish_delete(sl_key_t key, node_t *node, val_t node_val, ptst_t *ptst);
+static int sl_finish_insert(sl_key_t key, val_t val, node_t *node, val_t node_val, node_t *next, ptst_t *ptst);
+static val_t sl_finish_lookup(sl_key_t key, node_t *node, ptst_t *ptst);
+static val_t *sl_finish_lookup_range(sl_key_t from, sl_key_t to, node_t *node, val_t node_val, node_t *next, ptst_t *ptst);
 
 /**
  * sl_finish_contains - contains skip list operation
@@ -78,14 +77,13 @@ static int sl_finish_insert(sl_key_t key, val_t val, node_t *node,
  *
  * Returns 1 if the search key is present and 0 otherwise.
  */
-static int sl_finish_contains(sl_key_t key, node_t *node, val_t node_val,
-							  ptst_t *ptst)
+static int sl_finish_contains(sl_key_t key, node_t *node, val_t node_val, ptst_t *ptst)
 {
 	int result = 0;
 
-	assert(NULL != node);
+	assert(node != NULL);
 
-	if ((key == node->key) && (NULL != node_val))
+	if ((key == node->key) && (node_val != NULL))
 		result = 1;
 
 	return result;
@@ -101,24 +99,23 @@ static int sl_finish_contains(sl_key_t key, node_t *node, val_t node_val,
  * and -1 if the key is present but the node is already
  * logically deleted, or if the CAS to logically delete fails.
  */
-static int sl_finish_delete(sl_key_t key, node_t *node, val_t node_val,
-							ptst_t *ptst)
+static int sl_finish_delete(sl_key_t key, node_t *node, val_t node_val, ptst_t *ptst)
 {
 	int result = -1;
 
-	assert(NULL != node);
+	assert(node != NULL);
 
 	if (node->key != key)
 		result = 0;
 	else
 	{
-		if (NULL != node_val)
+		if (node_val != NULL)
 		{
 			/* loop until we or someone else deletes */
 			while (1)
 			{
 				node_val = node->val;
-				if (NULL == node_val || node == node_val)
+				if (node_val == NULL || node == node_val)
 				{
 					result = 0;
 					break;
@@ -160,15 +157,14 @@ static int sl_finish_delete(sl_key_t key, node_t *node, val_t node_val,
  * > -1 if @key is not present in the set and insertion operation
  *   fails due to concurrency.
  */
-static int sl_finish_insert(sl_key_t key, val_t val, node_t *node,
-							val_t node_val, node_t *next, ptst_t *ptst)
+static int sl_finish_insert(sl_key_t key, val_t val, node_t *node, val_t node_val, node_t *next, ptst_t *ptst)
 {
 	int result = -1;
 	node_t *new;
 
 	if (node->key == key)
 	{
-		if (NULL == node_val)
+		if (node_val == NULL)
 		{
 			if (CAS(&node->val, node_val, val))
 				result = 1;
@@ -183,10 +179,9 @@ static int sl_finish_insert(sl_key_t key, val_t val, node_t *node,
 		new = node_new(key, val, node, next, 0, ptst);
 		if (CAS(&node->next, next, new))
 		{
-
 			assert(node->next != node);
 
-			if (NULL != next)
+			if (next != NULL)
 				next->prev = new; /* safe */
 			result = 1;
 		}
@@ -197,6 +192,50 @@ static int sl_finish_insert(sl_key_t key, val_t val, node_t *node,
 	}
 
 	return result;
+}
+
+static val_t sl_finish_lookup(sl_key_t key, node_t *node, ptst_t *ptst)
+{
+	val_t *result = NULL;
+
+	assert(node != NULL);
+
+	result = (val_t *)malloc(sizeof(val_t));
+
+	if (node->key == key)
+	{
+		result = node->val;
+	}
+
+	return result;
+}
+
+#define BASE 10
+
+static val_t *sl_finish_lookup_range(sl_key_t from, sl_key_t to, node_t *node, val_t node_val, node_t *next, ptst_t *ptst)
+{
+	val_t *res = NULL;
+	node_t *curr = NULL;
+	val_t curr_val = NULL;
+	unsigned long i = 1;
+
+	res = (val_t *)malloc(sizeof(val_t) * BASE);
+	curr = node;
+	curr_val = node_val;
+
+	while (curr != NULL && curr->key <= to) {
+		if (i % BASE == 0) {
+			res = (val_t *)realloc(res, sizeof(val_t) * (i + BASE));
+		}
+
+		if (curr_val != NULL && curr_val != curr) { // non-deleted
+			res[i++] = curr_val;
+		}
+		curr = curr->next;
+	}
+
+	res[0] = i - 1; // first element is the size of the array
+	return res;
 }
 
 /* - The public nohotspot_ops interface - */
@@ -211,15 +250,15 @@ static int sl_finish_insert(sl_key_t key, val_t val, node_t *node,
  * Returns the result of the operation.
  * Note: @val can be NULL.
  */
-int sl_do_operation(set_t *set, sl_optype_t optype, sl_key_t key, val_t val)
+unsigned long sl_do_operation(set_t *set, sl_optype_t optype, sl_key_t key, val_t val)
 {
 	inode_t *item = NULL, *next_item = NULL;
 	node_t *node = NULL, *next = NULL;
 	val_t node_val = NULL, *next_val = NULL;
-	int result = 0;
+	unsigned long result = 0;
 	ptst_t *ptst;
 
-	assert(NULL != set);
+	assert(set != NULL);
 
 #ifdef USE_GC
 	ptst = ptst_critical_enter();
@@ -230,10 +269,10 @@ int sl_do_operation(set_t *set, sl_optype_t optype, sl_key_t key, val_t val)
 	while (1)
 	{
 		next_item = item->right;
-		if (NULL == next_item || next_item->node->key > key)
+		if (next_item == NULL || next_item->node->key > key)
 		{
 			next_item = item->down;
-			if (NULL == next_item)
+			if (next_item == NULL)
 			{
 				node = item->node;
 				break;
@@ -254,7 +293,7 @@ int sl_do_operation(set_t *set, sl_optype_t optype, sl_key_t key, val_t val)
 			node = node->prev;
 		}
 		next = node->next;
-		if (NULL != next)
+		if (next != NULL)
 		{
 			next_val = next->val;
 			if ((node_t *)next_val == next)
@@ -263,18 +302,20 @@ int sl_do_operation(set_t *set, sl_optype_t optype, sl_key_t key, val_t val)
 				continue;
 			}
 		}
-		if (NULL == next || next->key > key)
+		if (next == NULL || next->key > key)
 		{
-			if (CONTAINS == optype)
-				result = sl_finish_contains(key, node, node_val,
-											ptst);
-			else if (DELETE == optype)
-				result = sl_finish_delete(key, node, node_val,
-										  ptst);
-			else if (INSERT == optype)
-				result = sl_finish_insert(key, val, node,
-										  node_val, next, ptst);
-			if (-1 != result)
+			if (optype == CONTAINS)
+				result = sl_finish_contains(key, node, node_val, ptst);
+			else if (optype == DELETE)
+				result = sl_finish_delete(key, node, node_val, ptst);
+			else if (optype == INSERT)
+				result = sl_finish_insert(key, val, node, node_val, next, ptst);
+			else if (optype == LOOKUP)
+				result = (unsigned long)sl_finish_lookup(key, node, ptst);
+			else if (optype == LOOKUP_RANGE) {
+				result = (unsigned long)sl_finish_lookup_range(key, *(sl_key_t *)val, node, node_val, next, ptst);
+			}
+			if (result != -1)
 				break;
 			continue;
 		}

@@ -29,15 +29,20 @@
 
 int sl_contains_old(set_t *set, unsigned int key, int transactional)
 {
-	return sl_contains(set, (sl_key_t)key);
+	return (int)sl_contains(set, (sl_key_t)key);
 }
 
 int sl_add_old(set_t *set, unsigned int key, int transactional)
 {
-	return sl_insert(set, (sl_key_t)key, (val_t)((long)key));
+	return (int)sl_insert(set, (sl_key_t)key, (val_t)((long)key));
 }
 
 int sl_remove_old(set_t *set, unsigned int key, int transactional)
 {
-	return sl_delete(set, (sl_key_t)key);
+	return (int)sl_delete(set, (sl_key_t)key);
+}
+
+unsigned long sl_lookup_range_old(set_t *set, unsigned int from, unsigned int to, int transactional)
+{
+	return sl_lookup_range(set, (sl_key_t)from, (val_t)&to);
 }
