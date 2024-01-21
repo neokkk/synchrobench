@@ -219,10 +219,12 @@ void print_skiplist(struct sl_set *set)
 
 void *test(void *data)
 {
-	int unext, val_arr_size, last = -1; // is next op update, last added value
+	int unext, last = -1, diff_idx = 0, ssize = 0; // is next op update, last added value, diff index, set size
 	unsigned int val = 0;
 	thread_data_t *d = (thread_data_t *)data;
 	rquery_t *rquery_curr = d->rquery;
+	ssize = set_size(d->set, 1);
+	int diffs[] = {ssize / 10, ssize / 50, ssize}; // percentage of set size
 	
 	/* Create transaction */
 	TM_THREAD_ENTER();
@@ -291,6 +293,7 @@ void *test(void *data)
 		}
 
 		if (TRANSACTIONAL == 6) { // for range query
+			unsigned int from = 0, to = 0;
 			unsigned long *result = NULL;
 			struct timeval start, end;
 			rquery_t *rquery = NULL;
@@ -299,20 +302,21 @@ void *test(void *data)
 
 			gettimeofday(&start, NULL);
 			
-			if (last < 0) {
-				result = (unsigned long *)sl_lookup_range_old(d->set, 1, val, TRANSACTIONAL);
+			if (diff_idx == 0 || diff_idx == 1) { // 10% or 50%
+				from = rand_range_re(&d->seed, diffs[0]);
+				to = from + diffs[0] > ssize ? ssize : from + diffs[0];
+				result = (unsigned long *)sl_lookup_range_old(d->set, from, to, TRANSACTIONAL);
+				rquery->from = from;
+				rquery->to = to;
+			} else { // 100%
+				result = (unsigned long *)sl_lookup_range_old(d->set, 1, d->range, TRANSACTIONAL);
 				rquery->from = 1;
-				rquery->to = val;
-				last = val;
-			} else {
-				result = (unsigned long *)sl_lookup_range_old(d->set, val, d->range, TRANSACTIONAL);
-				rquery->from = val;
 				rquery->to = d->range;
-				last = -1;
 			}
 
 			gettimeofday(&end, NULL);
 
+			diff_idx = (diff_idx + 1) % 3;
 			rquery->nb_found = result[0];
 			rquery->search_time = (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
 
@@ -323,9 +327,8 @@ void *test(void *data)
 				rquery_curr = rquery_curr->next;
 			}
 
-			printf("Thread %lu: range query from %d to %d\n", pthread_self(), rquery->from, rquery->to);
-			printf("  found %d values\n", rquery->nb_found);
-			printf("  took %lu ms\n", rquery->search_time);
+			printf("Thread %lu: range query from %d to %d found %d values, took %lu ms\n",
+				pthread_self(), rquery->from, rquery->to, rquery->nb_found, rquery->search_time);
 		} else {
 			if (sl_contains_old(d->set, val, TRANSACTIONAL)) 
 				d->nb_found++;

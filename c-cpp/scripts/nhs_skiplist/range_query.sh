@@ -18,27 +18,22 @@ benchs="lockfree-nohotspot-skiplist"
 #seqbenchs="tcmalloc-sequential-ll tcmalloc-sequential-rt tcmalloc-sequential-ht tcmalloc-sequential-sl"
 seqbenchs=""
 iterations="1"
-# iterations=""
-# for i in `seq 1 1 5`; do # 1..5 with step 1
-#   iterations="$iterations $i"
-# done
 #updates="0 100"
 updates="50"
 #size="1024 4096 8192 16384 32768 65536"
-sizes="64 65536 67108864"
+sizes="64 65536 2097152"
 #deqbenchs="estm-dq tcmalloc-estm-dq tcmalloc-sequential-dq"
 deqbenchs=""
 ###
 
 # set a memory allocator here
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-echo "LD_PATH:" $LD_LIBRARY_PATH  
 
 # path to binaries
 bin=./bin
 
 if [ ! -d "./log" ]; then
-	mkdir ./log	
+  mkdir ./log	
 fi
 
 for size in ${sizes}; do
