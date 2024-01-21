@@ -1,0 +1,4 @@
+jupyter-core
+matplotlib
+notebook
+numpy
