@@ -42,7 +42,6 @@
 #define DEFAULT_DURATION                10000
 #define DEFAULT_INITIAL                 256
 #define DEFAULT_NB_THREADS              1
-#define DERAULT_LIMIT                   100
 #define DEFAULT_RANGE                   0x7FFFFFFF
 #define DEFAULT_SEED                    0
 #define DEFAULT_UPDATE                  20
@@ -156,19 +155,18 @@ inline long rand_range_re(unsigned int *seed, long r) {
 }
 long rand_range_re(unsigned int *seed, long r);
 
-typedef struct rquery {
+typedef struct range_query {
 	unsigned int from;
 	int count;
-	unsigned long search_time; // ms
-	struct rquery *next;
-} rquery_t;
+	unsigned long search_time; // us
+	struct range_query *next;
+} range_query_t;
 
 typedef struct thread_data {
 	unsigned int first;
 	long range;
 	int update;
 	int unit_tx;
-	int limit;
 	int alternate;
 	int effective;
 	unsigned long nb_add;
@@ -189,10 +187,9 @@ typedef struct thread_data {
 	unsigned int seed;
 	struct sl_set *set;
 	barrier_t *barrier;
-	rquery_t *rquery;
+	range_query_t *range_query;
 	unsigned long failures_because_contention;
 } thread_data_t;
-
 
 void print_skiplist(struct sl_set *set)
 {
@@ -217,13 +214,11 @@ void print_skiplist(struct sl_set *set)
 		printf("%d nodes of level %d\n", arr[j], j);
 }
 
-
 void *test(void *data)
 {
-	int unext, last = -1, i = 0; // is next op update, last added value
+	int unext, last = -1; // is next op update, last added value
 	unsigned int val = 0;
 	thread_data_t *d = (thread_data_t *)data;
-	rquery_t *rquery_curr = d->rquery;
 	
 	// create transaction
 	TM_THREAD_ENTER();
@@ -238,46 +233,6 @@ void *test(void *data)
 #else
 	while (AO_load_full(&stop) == 0) {
 #endif
-
-	if (i > 1000) {
-		printf("Thread %lu: %d operations done\n", pthread_self(), i);
-		pthread_kill(pthread_self(), SIGINT); // if loop reached, kill thread itself
-		break;
-	}
-
-	if (TRANSACTIONAL == 6) { // for range query
-		unsigned int from = 0;
-		int count = 100;
-		unsigned long *result = NULL;
-		struct timeval start, end;
-		rquery_t *rquery = NULL;
-
-		rquery = (rquery_t *)malloc(sizeof(rquery_t));
-
-		gettimeofday(&start, NULL);
-		
-		from = rand_range_re(&d->seed, d->range);
-		result = (unsigned long *)sl_lookup_range_old(d->set, from, count, TRANSACTIONAL);
-		rquery->from = from;
-		rquery->count = count;
-		i++;
-
-		gettimeofday(&end, NULL);
-
-		rquery->search_time = (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
-
-		if (rquery_curr == NULL) {
-			d->rquery = rquery;
-		} else {
-			rquery_curr->next = rquery;
-			rquery_curr = rquery_curr->next;
-		}
-
-		printf("Thread %lu: range query from %d found %d values, took %lu ms\n",
-			pthread_self(), rquery->from, rquery->count, rquery->search_time);
-
-		continue;
-	}
 
 	if (unext) { // update
 		if (last < 0) { // add
@@ -351,9 +306,71 @@ void *test(void *data)
 	return NULL;
 }
 
-void *test_range_query(void *data)
+void *test_range(void *data) // for range query (unit-tx == 6)
 {
+	int i = 0; // is next op update, last added value
+	unsigned int val = 0;
+	thread_data_t *d = (thread_data_t *)data;
+	range_query_t *range_query_curr = d->range_query;
+	
+	// create transaction
+	TM_THREAD_ENTER();
+	// wait on barrier
+	barrier_cross(d->barrier);
 
+#ifdef ICC
+	while (stop == 0) {
+#else
+	while (AO_load_full(&stop) == 0) {
+#endif
+
+		if (i > 1000) {
+			printf("Thread %lu: %d operations done\n", pthread_self(), i);
+			TM_THREAD_EXIT();
+			pthread_kill(pthread_self(), SIGINT); // if loop reached, kill thread itself
+			break;
+		}
+
+		unsigned int from = 0;
+		int count = 100;
+		unsigned long *result = NULL;
+		struct timeval start, end;
+		range_query_t *range_query = NULL;
+
+		range_query = (range_query_t *)malloc(sizeof(range_query_t));
+
+		gettimeofday(&start, NULL);
+		
+		from = rand_range_re(&d->seed, d->range);
+		result = (unsigned long *)sl_lookup_range_old(d->set, from, count, TRANSACTIONAL);
+		range_query->from = from;
+		range_query->count = count;
+		i++;
+
+		gettimeofday(&end, NULL);
+
+		range_query->search_time = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
+
+		if (range_query_curr == NULL) {
+			d->range_query = range_query;
+		} else {
+			range_query_curr->next = range_query;
+			range_query_curr = range_query_curr->next;
+		}
+
+		printf("Thread %lu: range query from %d found %d values, took %lu us\n",
+			pthread_self(), range_query->from, range_query->count, range_query->search_time);
+
+#ifdef ICC
+	}
+#else
+	}
+#endif /* ICC */
+	
+	/* free transaction */
+	TM_THREAD_EXIT();
+	
+	return NULL;
 }
 
 void catcher(int sig)
@@ -375,9 +392,17 @@ int main(int argc, char **argv)
 		{"elasticity",                required_argument, NULL, 'x'},
 		{NULL, 0, NULL, 0}
 	};
+
+	#ifdef CF_NA
+		printf("CF_NA is defined\n");
+	#endif
+
+	#ifdef CF_NR
+		printf("CF_NR is defined\n");
+	#endif
 	
 	struct sl_set *set;
-	int i, c, size, limit;
+	int i, c, size;
 	unsigned int last = 0, val = 0;
 	unsigned long reads, effreads, updates, effupds, aborts, aborts_locked_read, aborts_locked_write,
 	aborts_validate_read, aborts_validate_write, aborts_validate_commit,
@@ -405,7 +430,7 @@ int main(int argc, char **argv)
 
 	while(1) {
 		i = 0;
-		c = getopt_long(argc, argv, "hAf:d:i:t:l:r:S:u:x:U:", long_options, &i);
+		c = getopt_long(argc, argv, "hAf:d:i:t:r:S:u:x:U:", long_options, &i);
 		
 		if (c == -1)
 			break;
@@ -436,8 +461,6 @@ int main(int argc, char **argv)
 					"        Number of elements to insert before test (default=" XSTR(DEFAULT_INITIAL) ")\n"
 					"  -t, --thread-num <int>\n"
 					"        Number of threads (default=" XSTR(DEFAULT_NB_THREADS) ")\n"
-					"  -l, --limit <int>\n"
-					"        Limit of integer values inserted in set (default=" XSTR(DEFAULT_LIMIT) ")\n"
 					"  -r, --range <int>\n"
 					"        Range of integer values inserted in set (default=" XSTR(DEFAULT_RANGE) ")\n"
 					"  -S, --seed <int>\n"
@@ -452,7 +475,7 @@ int main(int argc, char **argv)
 					"        3 = read/add elastic-tx,\n"
 					"        4 = read/add/rem elastic-tx,\n"
 					"        5 = fraser lock-free\n"
-					"        6 = read\n"
+					"        6 = read range\n"
 					);
 				exit(0);
 			case 'A':
@@ -469,9 +492,6 @@ int main(int argc, char **argv)
 				break;
 			case 't':
 				nb_threads = atoi(optarg);
-				break;
-			case 'l':
-				limit = atoi(optarg);
 				break;
 			case 'r':
 				range = atol(optarg);
@@ -506,7 +526,6 @@ int main(int argc, char **argv)
 	printf("Duration     : %d\n", duration);
 	printf("Initial size : %u\n", initial);
 	printf("Nb threads   : %d\n", nb_threads);
-	printf("Limit        : %d\n", limit);
 	printf("Value range  : %ld\n", range);
 	printf("Seed         : %d\n", seed);
 	printf("Update rate  : %d\n", update);
@@ -514,10 +533,7 @@ int main(int argc, char **argv)
 	printf("Alternate    : %d\n", alternate);
 	printf("Efffective   : %d\n", effective);
 	printf("Type sizes   : int=%d/long=%d/ptr=%d/word=%d\n",
-		(int)sizeof(int),
-		(int)sizeof(long),
-		(int)sizeof(void *),
-		(int)sizeof(uintptr_t));
+		(int)sizeof(int), (int)sizeof(long), (int)sizeof(void *), (int)sizeof(uintptr_t));
 	
 	timeout.tv_sec = duration / 1000;
 	timeout.tv_nsec = (duration % 1000) * 1000000;
@@ -579,15 +595,17 @@ int main(int argc, char **argv)
 
 	gettimeofday(&initial_end, NULL);
 	initial_duration = (initial_end.tv_sec - initial_start.tv_sec) * 1000000 + initial_end.tv_usec - initial_start.tv_usec;
-	printf("Adding %d entries to set took %lu ms\n", initial, initial_duration);
+	printf("Adding %d entries to set took %lu us\n", initial, initial_duration);
 
 	size = set_size(set, 1);
 	printf("Set size     : %d\n", size);
 	printf("Level max    : %d\n", levelmax);
 
+#ifndef CF_NA
 	// nullify all the index nodes we created so
 	// we can start again and rebalance the skip list
 	bg_stop();
+#endif /* ! CF_NA */
 
 	// the following code is hacky since it creates a memory
 	// leak - we cut off all the nodes in the index levels
@@ -603,14 +621,20 @@ int main(int argc, char **argv)
 		temp = temp->next;
 	}
 
+#ifndef CF_NA
 	// wait till the list is balanced
 	bg_start(0);
+#endif /* ! CF_NA */
+
 	while (set->head->level < floor_log_2(initial)) {
 		AO_nop_full();
 	}
 	printf("Number of levels is %d\n", set->head->level);
+
+#ifndef CF_NA
 	bg_stop();
 	bg_start(1000000);
+#endif /* ! CF_NA */
 
 	// access set from all threads 
 	barrier_init(&barrier, nb_threads + 1);
@@ -643,10 +667,10 @@ int main(int argc, char **argv)
 		data[i].seed = rand();
 		data[i].set = set;
 		data[i].barrier = &barrier;
-		data[i].rquery = NULL;
+		data[i].range_query = NULL;
 		data[i].failures_because_contention = 0;
 
-		if (pthread_create(&threads[i], &attr, test, (void *)(&data[i])) != 0) {
+		if (pthread_create(&threads[i], &attr, data[i].unit_tx == 6 ? test_range : test, (void *)(&data[i])) != 0) {
 			fprintf(stderr, "Error creating thread\n");
 			exit(1);
 		}
@@ -710,25 +734,6 @@ int main(int argc, char **argv)
 	max_retries = 0;
 
 	for (i = 0; i < nb_threads; i++) {
-	/*
-		printf("Thread %d\n", i);
-		printf("  #add        : %lu\n", data[i].nb_add);
-		printf("    #added    : %lu\n", data[i].nb_added);
-		printf("  #remove     : %lu\n", data[i].nb_remove);
-		printf("    #removed  : %lu\n", data[i].nb_removed);
-		printf("  #contains   : %lu\n", data[i].nb_contains);
-		printf("  #found      : %lu\n", data[i].nb_found);
-		printf("  #aborts     : %lu\n", data[i].nb_aborts);
-		printf("    #lock-r   : %lu\n", data[i].nb_aborts_locked_read);
-		printf("    #lock-w   : %lu\n", data[i].nb_aborts_locked_write);
-		printf("    #val-r    : %lu\n", data[i].nb_aborts_validate_read);
-		printf("    #val-w    : %lu\n", data[i].nb_aborts_validate_write);
-		printf("    #val-c    : %lu\n", data[i].nb_aborts_validate_commit);
-		printf("    #inv-mem  : %lu\n", data[i].nb_aborts_invalid_memory);
-		printf("    #dup-w    : %lu\n", data[i].nb_aborts_double_write);
-		printf("    #failures : %lu\n", data[i].failures_because_contention);
-		printf("  Max retries : %lu\n", data[i].max_retries);
-	*/
 		aborts += data[i].nb_aborts;
 		aborts_locked_read += data[i].nb_aborts_locked_read;
 		aborts_locked_write += data[i].nb_aborts_locked_write;
@@ -739,9 +744,7 @@ int main(int argc, char **argv)
 		aborts_double_write += data[i].nb_aborts_double_write;
 		failures_because_contention += data[i].failures_because_contention;
 		reads += data[i].nb_contains;
-		effreads += data[i].nb_contains + 
-			(data[i].nb_add - data[i].nb_added) + 
-			(data[i].nb_remove - data[i].nb_removed); 
+		effreads += data[i].nb_contains + (data[i].nb_add - data[i].nb_added) + (data[i].nb_remove - data[i].nb_removed); 
 		updates += (data[i].nb_add + data[i].nb_remove);
 		effupds += data[i].nb_removed + data[i].nb_added; 
 		size += data[i].nb_added - data[i].nb_removed;
@@ -783,8 +786,10 @@ int main(int argc, char **argv)
 	printf("  #failures   : %lu\n",  failures_because_contention);
 	printf("Max retries   : %lu\n", max_retries);
 
+#ifndef CF_NA
 	bg_stop();
 	bg_print_stats();
+#endif /* ! CF_NA */
 
 	// sl_set_print(set, 1);
 	gc_subsystem_destroy();

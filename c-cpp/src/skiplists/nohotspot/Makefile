@@ -3,10 +3,13 @@ ROOT = ../../..
 include $(ROOT)/common/Makefile.common
 
 BINS = $(BINDIR)/lockfree-nohotspot-skiplist
+# MACROS = -DCF_NA
+
+# CFLAGS += -g
 
 .PHONY:	all clean
 
-all:	main
+all: main
 
 ptst.o: ptst.h 
 	$(CC) $(CFLAGS) -c -o $(BUILDIR)/ptst.o ptst.c -I.
@@ -27,7 +30,7 @@ intset.o: intset.h nohotspot_ops.h skiplist.h
 	$(CC) $(CFLAGS) -c -o $(BUILDIR)/intset.o intset.c -I.
 
 test.o: intset.h
-	$(CC) $(CFLAGS) -c -o $(BUILDIR)/test.o test.c -I.
+	$(CC) $(CFLAGS) -c -o $(BUILDIR)/test.o test.c -I. $(MACROS)
 
 main: intset.o background.o skiplist.o nohotspot_ops.o test.o ptst.o garbagecoll.o
 	$(CC) $(CFLAGS) $(BUILDIR)/garbagecoll.o $(BUILDIR)/ptst.o $(BUILDIR)/skiplist.o $(BUILDIR)/nohotspot_ops.o $(BUILDIR)/intset.o $(BUILDIR)/background.o $(BUILDIR)/test.o -o $(BINS) $(LDFLAGS)

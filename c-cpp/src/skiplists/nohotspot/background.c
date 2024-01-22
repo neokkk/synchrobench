@@ -101,8 +101,7 @@ static void *bg_loop(void *args);
 static void bg_trav_nodes(ptst_t *ptst);
 static void bg_lower_ilevel(inode_t *new_low, ptst_t *ptst);
 static int bg_raise_nlevel(inode_t *inode, ptst_t *ptst);
-static int bg_raise_ilevel(inode_t *iprev, inode_t *iprev_tall,
-						   int height, ptst_t *ptst);
+static int bg_raise_ilevel(inode_t *iprev, inode_t *iprev_tall, int height, ptst_t *ptst);
 
 /**
  * bg_loop - loop for maintaining index levels
@@ -121,7 +120,7 @@ static void *bg_loop(void *args)
 	int i;
 	struct sl_ptst *ptst;
 
-	assert(NULL != set);
+	assert(set != NULL);
 
 	while (1)
 	{
@@ -154,10 +153,10 @@ static void *bg_loop(void *args)
 		for (i = set->head->level - 1; i >= 0; i--)
 		{
 			inodes[i] = inode;
-			assert(NULL != inodes[i]);
+			assert(inodes[i] != NULL);
 			inode = inode->down;
 		}
-		assert(NULL == inode);
+		assert(inode == NULL);
 
 		/* raise bottom level nodes */
 		raised = bg_raise_nlevel(inodes[0], ptst);
@@ -168,7 +167,7 @@ static void *bg_loop(void *args)
 			inew = inode_new(NULL, set->top, set->head, ptst);
 			set->top = inew;
 			++set->head->level;
-			assert(NULL == inodes[1]);
+			assert(inodes[1] == NULL);
 			inodes[1] = set->top;
 
 #ifdef BG_STATS
@@ -181,9 +180,9 @@ static void *bg_loop(void *args)
 		{
 			assert(i < MAX_LEVELS - 1);
 			raised = bg_raise_ilevel(inodes[i],		/* level raised */
-									 inodes[i + 1], /* level above */
-									 i + 1,			/* current height */
-									 ptst);
+				inodes[i + 1], /* level above */
+				i + 1,			/* current height */
+				ptst);
 		}
 
 		if (raised)
@@ -202,10 +201,10 @@ static void *bg_loop(void *args)
 		threshold = bg_non_deleted * 10;
 		if (bg_tall_deleted > threshold)
 		{
-			if (NULL != inodes[1])
+			if (inodes[1] != NULL)
 			{
 				bg_lower_ilevel(inodes[1], /* level above */
-								ptst);
+					ptst);
 
 #ifdef BG_STATS
 				++bg_stats.lowers;
@@ -233,14 +232,16 @@ static void bg_trav_nodes(ptst_t *ptst)
 {
 	node_t *prev, *node;
 
-	assert(NULL != set && NULL != set->head);
+	assert(set != NULL && set->head != NULL);
 
 	prev = set->head;
 	node = prev->next;
-	while (NULL != node)
+	while (node != NULL)
 	{
+#ifndef CF_NR
 		bg_remove(prev, node, ptst);
-		if (NULL != node->val && node != node->val)
+#endif /* CF_NR */
+		if (node->val != NULL && node != node->val)
 			++bg_non_deleted;
 		else if (node->level >= 1)
 			++bg_tall_deleted;
@@ -264,26 +265,23 @@ static int bg_raise_nlevel(inode_t *inode, ptst_t *ptst)
 
 	above = above_prev = inode;
 
-	assert(NULL != inode);
+	assert(inode != NULL);
 
 	prev = set->head;
 	node = set->head->next;
 
-	if (NULL == node)
+	if (node == NULL)
 		return 0;
 
 	next = node->next;
 
-	while (NULL != next)
+	while (next != NULL)
 	{
 		/* don't raise deleted nodes */
 		if (node != node->val)
 		{
-			if (((prev->level == 0) &&
-				 (node->level == 0)) &&
-				(next->level == 0))
+			if (((prev->level == 0) && (node->level == 0)) && (next->level == 0))
 			{
-
 				raised = 1;
 
 				/* get the correct index above and behind */
@@ -295,8 +293,7 @@ static int bg_raise_nlevel(inode_t *inode, ptst_t *ptst)
 				}
 
 				/* add a new index item above node */
-				inew = inode_new(above_prev->right, NULL,
-								 node, ptst);
+				inew = inode_new(above_prev->right, NULL, node, ptst);
 				above_prev->right = inew;
 				node->level = 1;
 				above_prev = inode = above = inew;
@@ -319,38 +316,34 @@ static int bg_raise_nlevel(inode_t *inode, ptst_t *ptst)
  *
  * Returns 1 if a node was raised and 0 otherwise.
  */
-static int bg_raise_ilevel(inode_t *iprev, inode_t *iprev_tall,
-						   int height, ptst_t *ptst)
+static int bg_raise_ilevel(inode_t *iprev, inode_t *iprev_tall, int height, ptst_t *ptst)
 {
 	int raised = 0;
 	inode_t *index, *inext, *inew, *above, *above_prev;
 
 	above = above_prev = iprev_tall;
 
-	assert(NULL != iprev);
-	assert(NULL != iprev_tall);
+	assert(iprev != NULL);
+	assert(iprev_tall != NULL);
 
 	index = iprev->right;
 
-	while ((NULL != index) && (NULL != (inext = index->right)))
+	while ((index != NULL) && ((inext = index->right) != NULL))
 	{
 		while (index->node->val == index->node)
 		{
 			/* skip deleted nodes */
 			iprev->right = inext;
-			if (NULL == inext)
+			if (inext == NULL)
 				break;
 
 			index = inext;
 			inext = inext->right;
 		}
-		if (NULL == inext)
+		if (inext == NULL)
 			break;
-		if (((iprev->node->level <= height) &&
-			 (index->node->level <= height)) &&
-			(inext->node->level <= height))
+		if (((iprev->node->level <= height) && (index->node->level <= height)) && (inext->node->level <= height))
 		{
-
 			raised = 1;
 
 			/* get the correct index above and behind */
@@ -361,8 +354,7 @@ static int bg_raise_ilevel(inode_t *iprev, inode_t *iprev_tall,
 					above_prev = above_prev->right;
 			}
 
-			inew = inode_new(above_prev->right, index,
-							 index->node, ptst);
+			inew = inode_new(above_prev->right, index, index->node, ptst);
 			above_prev->right = inew;
 			index->node->level = height + 1;
 			above_prev = above = iprev_tall = inew;
@@ -387,7 +379,7 @@ void bg_lower_ilevel(inode_t *new_low, ptst_t *ptst)
 	inode_t *old_low = new_low->down;
 
 	/* remove the lowest index level */
-	while (NULL != new_low)
+	while (new_low != NULL)
 	{
 		new_low->down = NULL;
 		--new_low->node->level;
@@ -395,7 +387,7 @@ void bg_lower_ilevel(inode_t *new_low, ptst_t *ptst)
 	}
 
 	/* garbage collect the old low level */
-	while (NULL != old_low)
+	while (old_low != NULL)
 	{
 		inode_delete(old_low, ptst);
 		old_low = old_low->right;
@@ -489,14 +481,14 @@ void bg_help_remove(node_t *prev, node_t *node, ptst_t *ptst)
 	int retval;
 #endif
 
-	assert(NULL != prev);
-	assert(NULL != node);
+	assert(prev != NULL);
+	assert(node != NULL);
 
 	if (node->val != node || node->marker)
 		return;
 
 	n = node->next;
-	while (NULL == n || !n->marker)
+	while (n == NULL || !n->marker)
 	{
 		new = node_new(0, NULL, node, n, 0, ptst);
 		new->val = new;
@@ -538,7 +530,7 @@ void bg_help_remove(node_t *prev, node_t *node, ptst_t *ptst)
  */
 void bg_remove(node_t *prev, node_t *node, ptst_t *ptst)
 {
-	assert(NULL != node);
+	assert(node != NULL);
 
 	if (0 == node->level)
 	{

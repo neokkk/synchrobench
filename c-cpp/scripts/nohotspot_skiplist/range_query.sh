@@ -27,7 +27,6 @@ if [ ! -d "./log" ]; then
 fi
 
 for size in ${sizes}; do
-  # make the range twice as large as initial size to maintain size expectation 
   for upd in ${updates}; do 
     for thread in ${threads}; do
       for iter in ${iterations}; do
