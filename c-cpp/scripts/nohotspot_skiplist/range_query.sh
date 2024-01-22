@@ -14,7 +14,7 @@ threads="20"
 benchs="lockfree-nohotspot-skiplist"
 iterations="1"
 updates="50"
-sizes="64 65536 2097152"
+sizes="65536 655360"
 
 # set a memory allocator here
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
@@ -32,9 +32,9 @@ for size in ${sizes}; do
     for thread in ${threads}; do
       for iter in ${iterations}; do
         for bench in ${benchs}; do 
-          ${bin}/${bench} -x6 -u ${upd} -i ${size} -r ${size} -d 5000 -t ${thread} -f 0 > ./log/${bench}-n${thread}-i${size}-u${upd}.${iter}.log
+          ${bin}/${bench} -x6 -u ${upd} -i ${size} -r ${size} -d 10000000 -t ${thread} -f 0 > ./log/${bench}-n${thread}-i${size}-u${upd}.${iter}.log
         done
-        echo "Done experimenting concurrent benchs for 5000 milliseconds each"
+        echo "Done experimenting concurrent bench"
       done
     done
   done
