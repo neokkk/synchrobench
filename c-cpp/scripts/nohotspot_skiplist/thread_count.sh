@@ -13,9 +13,9 @@
 threads="1 4 16 24"
 benchs="lockfree-nohotspot-skiplist"
 iterations="1"
-updates="10 50 100"
+updates="25 75"
 sizes="64 65536 2097152"
-ranges="128 1280000 128000000"
+ranges="128 1280000"
 ###
 
 # set a memory allocator here
