@@ -308,7 +308,7 @@ void *test(void *data)
 
 void *test_range(void *data) // for range query (unit-tx == 6)
 {
-	int i = 0; // is next op update, last added value
+	int i = 0; // loop count
 	unsigned int val = 0;
 	thread_data_t *d = (thread_data_t *)data;
 	range_query_t *range_query_curr = d->range_query;
