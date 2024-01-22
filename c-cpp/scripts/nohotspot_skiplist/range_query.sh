@@ -10,21 +10,11 @@
 #
 # Select appropriate parameters below
 #
-#threads="1 4 8 12 16 20 24 28 32"
 threads="20"
-#benchs="tcmalloc-lockfree-ll tcmalloc-spinlock-ht tcmalloc-estm-rt tcmalloc-estm-sl tcmalloc-fraser-sl tcmalloc-rotating-sl tcmalloc-spinlock-ll tcmalloc-estm-ll tcmalloc-estm-st tcmalloc-lockfree-ht tcmalloc-spinlock-sl tcmalloc-estm-ht tcmalloc-spinlock-btree"
 benchs="lockfree-nohotspot-skiplist"
-#lockfree-fraser-skiplist lockfree-rotating-skiplist lockfree-nohotspot-skiplist SPIN-skiplist"
-#seqbenchs="tcmalloc-sequential-ll tcmalloc-sequential-rt tcmalloc-sequential-ht tcmalloc-sequential-sl"
-seqbenchs=""
 iterations="1"
-#updates="0 100"
 updates="50"
-#size="1024 4096 8192 16384 32768 65536"
 sizes="64 65536 2097152"
-#deqbenchs="estm-dq tcmalloc-estm-dq tcmalloc-sequential-dq"
-deqbenchs=""
-###
 
 # set a memory allocator here
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib

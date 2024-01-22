@@ -10,38 +10,29 @@
 #
 # Select appropriate parameters below
 #
-#threads="1 4 8 12 16 20 24 28 32"
 threads="24"
-#benchs="tcmalloc-lockfree-ll tcmalloc-spinlock-ht tcmalloc-estm-rt tcmalloc-estm-sl tcmalloc-fraser-sl tcmalloc-rotating-sl tcmalloc-spinlock-ll tcmalloc-estm-ll tcmalloc-estm-st tcmalloc-lockfree-ht tcmalloc-spinlock-sl tcmalloc-estm-ht tcmalloc-spinlock-btree"
 benchs="lockfree-nohotspot-skiplist"
-#lockfree-fraser-skiplist lockfree-rotating-skiplist lockfree-nohotspot-skiplist SPIN-skiplist"
-#seqbenchs="tcmalloc-sequential-ll tcmalloc-sequential-rt tcmalloc-sequential-ht tcmalloc-sequential-sl"
 seqbenchs=""
-#iterations="1 2 3 4 5 6 7 8 9 10"
 iterations=""
 for i in `seq 1 1 5`; do # 1..5 with step 1
   iterations="$iterations $i"
 done
-#updates="0 100"
 updates=""
 for i in `seq 0 5 100`; do # 0..100 with step 5
   updates="$updates $i"
 done
-#size="1024 4096 8192 16384 32768 65536"
 sizes="5000"
-#deqbenchs="estm-dq tcmalloc-estm-dq tcmalloc-sequential-dq"
 deqbenchs=""
 ###
 
 # set a memory allocator here
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-echo "LD_PATH:" $LD_LIBRARY_PATH
 
 # path to binaries
 bin=./bin
 
 if [ ! -d "./log" ]; then
-	mkdir ./log	
+  mkdir ./log	
 fi
 
 for size in ${sizes}; do
