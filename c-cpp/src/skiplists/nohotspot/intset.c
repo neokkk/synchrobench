@@ -42,7 +42,7 @@ int sl_remove_old(set_t *set, unsigned int key, int transactional)
 	return (int)sl_delete(set, (sl_key_t)key);
 }
 
-unsigned long sl_lookup_range_old(set_t *set, unsigned int from, unsigned int to, int transactional)
+unsigned long sl_lookup_range_old(set_t *set, unsigned int from, int to, int transactional)
 {
-	return sl_lookup_range(set, (sl_key_t)from, (val_t)&to);
+	return sl_lookup_range(set, (sl_key_t)from, (val_t)to);
 }

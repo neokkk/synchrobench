@@ -66,7 +66,7 @@ static int sl_finish_contains(sl_key_t key, node_t *node, val_t node_val, ptst_t
 static int sl_finish_delete(sl_key_t key, node_t *node, val_t node_val, ptst_t *ptst);
 static int sl_finish_insert(sl_key_t key, val_t val, node_t *node, val_t node_val, node_t *next, ptst_t *ptst);
 static val_t sl_finish_lookup(sl_key_t key, node_t *node, ptst_t *ptst);
-static val_t *sl_finish_lookup_range(sl_key_t from, sl_key_t to, node_t *node, val_t node_val, node_t *next, ptst_t *ptst);
+static val_t *sl_finish_lookup_range(sl_key_t from, int count, node_t *node, val_t node_val, node_t *next, ptst_t *ptst);
 
 /**
  * sl_finish_contains - contains skip list operation
@@ -212,19 +212,19 @@ static val_t sl_finish_lookup(sl_key_t key, node_t *node, ptst_t *ptst)
 
 #define BASE 10
 
-static val_t *sl_finish_lookup_range(sl_key_t from, sl_key_t to, node_t *node, val_t node_val, node_t *next, ptst_t *ptst)
+static val_t *sl_finish_lookup_range(sl_key_t from, int count, node_t *node, val_t node_val, node_t *next, ptst_t *ptst)
 {
 	val_t *res = NULL;
 	node_t *curr = NULL;
 	val_t curr_val = NULL;
-	unsigned long i = 1;
+	int i = 0;
 
 	res = (val_t *)malloc(sizeof(val_t) * BASE);
 	curr = node;
 	curr_val = node_val;
 
-	while (curr != NULL && curr->key <= to) {
-		if (i % BASE == 0) {
+	while (curr != NULL && i < count) {
+		if (i != 0 && i % BASE == 0) {
 			res = (val_t *)realloc(res, sizeof(val_t) * (i + BASE));
 		}
 
@@ -234,7 +234,6 @@ static val_t *sl_finish_lookup_range(sl_key_t from, sl_key_t to, node_t *node, v
 		curr = curr->next;
 	}
 
-	res[0] = i - 1; // first element is the size of the array
 	return res;
 }
 
@@ -313,7 +312,7 @@ unsigned long sl_do_operation(set_t *set, sl_optype_t optype, sl_key_t key, val_
 			else if (optype == LOOKUP)
 				result = (unsigned long)sl_finish_lookup(key, node, ptst);
 			else if (optype == LOOKUP_RANGE) {
-				result = (unsigned long)sl_finish_lookup_range(key, *(sl_key_t *)val, node, node_val, next, ptst);
+				result = (unsigned long)sl_finish_lookup_range(key, (int)val, node, node_val, next, ptst);
 			}
 			if (result != -1)
 				break;
