@@ -38,12 +38,11 @@ fi
 
 for size in ${sizes}; do
   # make the range twice as large as initial size to maintain size expectation 
-  r=`echo "2*${size}" | bc`
   for upd in ${updates}; do 
     for thread in ${threads}; do
       for iter in ${iterations}; do
         for bench in ${benchs}; do 
-          ${bin}/${bench} -x6 -u ${upd} -i ${size} -r ${r} -d 5000 -t ${thread} -f 0 > ./log/${bench}-n${thread}-i${size}-u${upd}.${iter}.log
+          ${bin}/${bench} -x6 -u ${upd} -i ${size} -r ${size} -d 5000 -t ${thread} -f 0 > ./log/${bench}-n${thread}-i${size}-u${upd}.${iter}.log
         done
         echo "Done experimenting concurrent benchs for 5000 milliseconds each"
       done

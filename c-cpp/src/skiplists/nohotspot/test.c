@@ -219,12 +219,10 @@ void print_skiplist(struct sl_set *set)
 
 void *test(void *data)
 {
-	int unext, last = -1, diff_idx = 0, ssize = 0; // is next op update, last added value, diff index, set size
+	int unext, last = -1, prob_idx = 1; // is next op update, last added value
 	unsigned int val = 0;
 	thread_data_t *d = (thread_data_t *)data;
 	rquery_t *rquery_curr = d->rquery;
-	ssize = set_size(d->set, 1);
-	int diffs[] = {ssize / 10, ssize / 50, ssize}; // percentage of set size
 	
 	/* Create transaction */
 	TM_THREAD_ENTER();
@@ -302,21 +300,22 @@ void *test(void *data)
 
 			gettimeofday(&start, NULL);
 			
-			if (diff_idx == 0 || diff_idx == 1) { // 10% or 50%
-				from = rand_range_re(&d->seed, diffs[0]);
-				to = from + diffs[0] > ssize ? ssize : from + diffs[0];
-				result = (unsigned long *)sl_lookup_range_old(d->set, from, to, TRANSACTIONAL);
-				rquery->from = from;
-				rquery->to = to;
-			} else { // 100%
-				result = (unsigned long *)sl_lookup_range_old(d->set, 1, d->range, TRANSACTIONAL);
-				rquery->from = 1;
-				rquery->to = d->range;
+			if (prob_idx == 0) {
+				from = 1;
+				to = d->range;
+			} else {
+				from = rand_range_re(&d->seed, d->range);
+				to = from + rand_range_re(&d->seed, d->range - from);
 			}
+
+			result = (unsigned long *)sl_lookup_range_old(d->set, from, to, TRANSACTIONAL);
+			rquery->from = from;
+			rquery->to = to;
+			last = val;
 
 			gettimeofday(&end, NULL);
 
-			diff_idx = (diff_idx + 1) % 3;
+			prob_idx = (prob_idx + 1) % 6;
 			rquery->nb_found = result[0];
 			rquery->search_time = (end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec);
 
