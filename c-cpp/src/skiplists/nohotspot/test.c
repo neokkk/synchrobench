@@ -30,7 +30,6 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <time.h>
-#include <stdint.h>
 
 #include <atomic_ops.h>
 
@@ -309,9 +308,14 @@ void *test(void *data)
 void *test_range(void *data) // for range query (unit-tx == 6)
 {
 	int i = 0; // loop count
+	int count = 100;
 	unsigned int val = 0;
 	thread_data_t *d = (thread_data_t *)data;
 	range_query_t *range_query_curr = d->range_query;
+	range_query_t *range_query = NULL;
+	struct timeval start, end;
+	unsigned int from = 0;
+	unsigned long *result = NULL;
 	
 	// create transaction
 	TM_THREAD_ENTER();
@@ -324,18 +328,13 @@ void *test_range(void *data) // for range query (unit-tx == 6)
 	while (AO_load_full(&stop) == 0) {
 #endif
 
-		if (i > 1000) {
+		if (i >= 1000) {
 			printf("Thread %lu: %d operations done\n", pthread_self(), i);
+			free(range_query);
 			TM_THREAD_EXIT();
 			pthread_kill(pthread_self(), SIGINT); // if loop reached, kill thread itself
 			break;
 		}
-
-		unsigned int from = 0;
-		int count = 100;
-		unsigned long *result = NULL;
-		struct timeval start, end;
-		range_query_t *range_query = NULL;
 
 		range_query = (range_query_t *)malloc(sizeof(range_query_t));
 
@@ -343,12 +342,17 @@ void *test_range(void *data) // for range query (unit-tx == 6)
 		
 		from = rand_range_re(&d->seed, d->range);
 		result = (unsigned long *)sl_lookup_range_old(d->set, from, count, TRANSACTIONAL);
-		range_query->from = from;
-		range_query->count = count;
-		i++;
 
 		gettimeofday(&end, NULL);
 
+		if (result == NULL) {
+			free(range_query);
+			continue;
+		}
+
+		i++;
+		range_query->from = from;
+		range_query->count = count;
 		range_query->search_time = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
 
 		if (range_query_curr == NULL) {
@@ -369,6 +373,8 @@ void *test_range(void *data) // for range query (unit-tx == 6)
 	
 	/* free transaction */
 	TM_THREAD_EXIT();
+
+	free(range_query);
 	
 	return NULL;
 }
