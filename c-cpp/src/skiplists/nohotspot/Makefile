@@ -3,7 +3,7 @@ ROOT = ../../..
 include $(ROOT)/common/Makefile.common
 
 BINS = $(BINDIR)/lockfree-nohotspot-skiplist
-# MACROS = -DCF_NA
+# MACROS = -DCF_NR
 
 # CFLAGS += -g
 

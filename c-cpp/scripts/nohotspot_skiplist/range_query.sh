@@ -11,10 +11,10 @@
 # Select appropriate parameters below
 #
 threads="20"
-benchs="lockfree-nohotspot-skiplist"
+benchs="lockfree-nohotspot-skiplist lockfree-nohotspot-skiplist-cfna lockfree-nohotspot-skiplist-cfnr"
 iterations="1"
 updates="50"
-sizes="65536 655360"
+sizes="64 640 6400 64000 640000 6400000"
 
 # set a memory allocator here
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
